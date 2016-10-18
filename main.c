@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <math.h>
 #include "app_uart.h"
 #include "app_error.h"
 #include "nrf.h"
@@ -53,14 +54,15 @@ const nrf_drv_rtc_t rtc = NRF_DRV_RTC_INSTANCE(0); /**< Declaring an instance of
  */
 static void rtc_handler(nrf_drv_rtc_int_type_t int_type)
 {
-    if (int_type == NRF_DRV_RTC_INT_COMPARE0)
+    nrf_gpio_pin_toggle(TICK_EVENT_OUTPUT);
+    /*if (int_type == NRF_DRV_RTC_INT_COMPARE0)
     {
         nrf_gpio_pin_toggle(COMPARE_EVENT_OUTPUT);
     }
     else if (int_type == NRF_DRV_RTC_INT_TICK)
     {
         nrf_gpio_pin_toggle(TICK_EVENT_OUTPUT);
-    }
+    }*/
 }
 
 /** @brief Function starting the internal LFCLK XTAL oscillator.
@@ -81,16 +83,16 @@ static void rtc_config(void)
 
     //Initialize RTC instance
     nrf_drv_rtc_config_t config = NRF_DRV_RTC_DEFAULT_CONFIG;
-    config.prescaler = 4095;
+    config.prescaler = 255;//4095;
     err_code = nrf_drv_rtc_init(&rtc, &config, rtc_handler);
     APP_ERROR_CHECK(err_code);
 
     //Enable tick event & interrupt
-    nrf_drv_rtc_tick_enable(&rtc,true);
+    //nrf_drv_rtc_tick_enable(&rtc,true);
 
     //Set compare channel to trigger interrupt after COMPARE_COUNTERTIME seconds
-    err_code = nrf_drv_rtc_cc_set(&rtc,0,COMPARE_COUNTERTIME * 8,true);
-    APP_ERROR_CHECK(err_code);
+    //err_code = nrf_drv_rtc_cc_set(&rtc,0,COMPARE_COUNTERTIME * 8,true);
+    //APP_ERROR_CHECK(err_code);
 
     //Power on RTC instance
     nrf_drv_rtc_enable(&rtc);
@@ -110,8 +112,21 @@ void uart_error_handle(app_uart_evt_t * p_event)
 
 void in_pin_handler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
-    nrf_drv_gpiote_out_toggle(PIN_OUT);
-    printf("ts: %u, pin state=%d\r\n", NRF_RTC0->COUNTER, nrf_gpio_pin_read(PIN_IN));
+    volatile static uint32_t last_counter = 0;
+    volatile static uint32_t counter = 0;
+
+    counter = NRF_RTC0->COUNTER;
+    if (!last_counter)
+        last_counter =  counter;
+
+    //nrf_drv_gpiote_out_toggle(PIN_OUT);
+    if (nrf_gpio_pin_read(pin))
+        printf("PIN_%02lu ", pin);
+    else
+        printf("pin_%02lu ", pin);
+
+    printf("time: %07lu (+%07lu, %ld ms)\r\n", counter, counter-last_counter, lroundf((counter-last_counter)*1000/128.0f));
+    last_counter = counter;
 }
 /**
  * @brief Function for configuring: PIN_IN pin for input, PIN_OUT pin for output,
@@ -153,7 +168,7 @@ int main(void)
           0,
           APP_UART_FLOW_CONTROL_DISABLED,
           false,
-          UART_BAUDRATE_BAUDRATE_Baud19200
+          UART_BAUDRATE_BAUDRATE_Baud115200
       };
 
     APP_UART_FIFO_INIT(&comm_params,
