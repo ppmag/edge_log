@@ -22,6 +22,10 @@ SRC_FILES += \
   $(SDK_ROOT)/components/drivers_nrf/common/nrf_drv_common.c \
   $(SDK_ROOT)/components/drivers_nrf/uart/nrf_drv_uart.c \
   $(SDK_ROOT)/components/drivers_nrf/gpiote/nrf_drv_gpiote.c \
+  $(SDK_ROOT)/components/drivers_nrf/clock/nrf_drv_clock.c \
+  $(SDK_ROOT)/components/drivers_nrf/rtc/nrf_drv_rtc.c \
+  $(SDK_ROOT)/components/drivers_nrf/nrf_soc_nosd/nrf_nvic.c \
+  $(SDK_ROOT)/components/drivers_nrf/nrf_soc_nosd/nrf_soc.c    
 
 # Include folders common to all targets
 INC_FOLDERS += \
@@ -32,8 +36,10 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/toolchain/gcc \
   $(SDK_ROOT)/components/toolchain \
   $(SDK_ROOT)/components/drivers_nrf/uart \
+  $(SDK_ROOT)/components/drivers_nrf/rtc \
   ../config \
   $(SDK_ROOT)/components/drivers_nrf/common \
+  $(SDK_ROOT)/components/drivers_nrf/clock \
   $(PROJ_DIR) \
   $(PROJ_DIR)/../../bsp \
   $(SDK_ROOT)/components/libraries/fifo \
@@ -48,7 +54,7 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/libraries/log/src \
 
 # Libraries common to all targets
-LIB_FILES += \
+#LIB_FILES += 
 
 # C flags common to all targets
 CFLAGS += -DNRF52_PAN_12
@@ -79,9 +85,8 @@ CFLAGS += -ffunction-sections -fdata-sections -fno-strict-aliasing
 CFLAGS += -fno-builtin --short-enums 
 # generate dependency output file
 CFLAGS += -MP -MD
-CFLAGS += -DGPIOTE_ENABLED=1 -DGPIOTE_CONFIG_NUM_OF_LOW_POWER_EVENTS=2 -DGPIOTE_CONFIG_IRQ_PRIORITY=2
 # C++ flags common to all targets
-CXXFLAGS += \
+#CXXFLAGS += \
 
 # Assembler flags common to all targets
 ASMFLAGS += -x assembler-with-cpp
@@ -140,4 +145,3 @@ flash: $(OUTPUT_DIRECTORY)/nrf52832_xxaa.hex
 	@echo Flashing: $<
 	nrfjprog --program $< -f nrf52 --chiperase
 	nrfjprog --reset -f nrf52
-

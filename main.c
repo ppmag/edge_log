@@ -1,24 +1,5 @@
-/* Copyright (c) 2014 Nordic Semiconductor. All Rights Reserved.
- *
- * The information contained herein is property of Nordic Semiconductor ASA.
- * Terms and conditions of usage are described in detail in NORDIC
- * SEMICONDUCTOR STANDARD SOFTWARE LICENSE AGREEMENT.
- *
- * Licensees are granted free, non-transferable use of the information. NO
- * WARRANTY of ANY KIND is provided. This heading must NOT be removed from
- * the file.
- *
- */
 
-/** @file
- * @defgroup uart_example_main main.c
- * @{
- * @ingroup uart_example
- * @brief UART Example Application main file.
- *
- * This file contains the source code for a sample application using UART.
- *
- */
+#define COMPARE_COUNTERTIME  (3U)
 
 
 #include <stdbool.h>
@@ -29,6 +10,8 @@
 #include "nrf.h"
 #include "nrf_drv_gpiote.h"
 #include "nrf_delay.h"
+#include "nrf_drv_rtc.h"
+#include "nrf_drv_clock.h"
 #include "bsp.h"
 #include "boards.h"
 
@@ -50,6 +33,68 @@
     #error "Please indicate output pin"
 #endif
 
+#ifdef BSP_LED_1
+    #define TICK_EVENT_OUTPUT     BSP_LED_1                                 /**< Pin number for indicating tick event. */
+#endif
+#ifndef TICK_EVENT_OUTPUT
+    #error "Please indicate output pin"
+#endif
+#ifdef BSP_LED_2
+    #define COMPARE_EVENT_OUTPUT   BSP_LED_2                                /**< Pin number for indicating compare event. */
+#endif
+#ifndef COMPARE_EVENT_OUTPUT
+    #error "Please indicate output pin"
+#endif
+
+const nrf_drv_rtc_t rtc = NRF_DRV_RTC_INSTANCE(0); /**< Declaring an instance of nrf_drv_rtc for RTC0. */
+
+/** @brief: Function for handling the RTC0 interrupts.
+ * Triggered on TICK and COMPARE0 match.
+ */
+static void rtc_handler(nrf_drv_rtc_int_type_t int_type)
+{
+    if (int_type == NRF_DRV_RTC_INT_COMPARE0)
+    {
+        nrf_gpio_pin_toggle(COMPARE_EVENT_OUTPUT);
+    }
+    else if (int_type == NRF_DRV_RTC_INT_TICK)
+    {
+        nrf_gpio_pin_toggle(TICK_EVENT_OUTPUT);
+    }
+}
+
+/** @brief Function starting the internal LFCLK XTAL oscillator.
+ */
+static void lfclk_config(void)
+{
+    ret_code_t err_code = nrf_drv_clock_init();
+    APP_ERROR_CHECK(err_code);
+
+    nrf_drv_clock_lfclk_request(NULL);
+}
+
+/** @brief Function initialization and configuration of RTC driver instance.
+ */
+static void rtc_config(void)
+{
+    uint32_t err_code;
+
+    //Initialize RTC instance
+    nrf_drv_rtc_config_t config = NRF_DRV_RTC_DEFAULT_CONFIG;
+    config.prescaler = 4095;
+    err_code = nrf_drv_rtc_init(&rtc, &config, rtc_handler);
+    APP_ERROR_CHECK(err_code);
+
+    //Enable tick event & interrupt
+    nrf_drv_rtc_tick_enable(&rtc,true);
+
+    //Set compare channel to trigger interrupt after COMPARE_COUNTERTIME seconds
+    err_code = nrf_drv_rtc_cc_set(&rtc,0,COMPARE_COUNTERTIME * 8,true);
+    APP_ERROR_CHECK(err_code);
+
+    //Power on RTC instance
+    nrf_drv_rtc_enable(&rtc);
+}
 
 void uart_error_handle(app_uart_evt_t * p_event)
 {
@@ -66,7 +111,7 @@ void uart_error_handle(app_uart_evt_t * p_event)
 void in_pin_handler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
     nrf_drv_gpiote_out_toggle(PIN_OUT);
-    printf("pin state=%d\r\n", nrf_gpio_pin_read(PIN_IN));
+    printf("ts: %u, pin state=%d\r\n", NRF_RTC0->COUNTER, nrf_gpio_pin_read(PIN_IN));
 }
 /**
  * @brief Function for configuring: PIN_IN pin for input, PIN_OUT pin for output,
@@ -119,21 +164,22 @@ int main(void)
                          err_code);
 
     APP_ERROR_CHECK(err_code);
+    printf("EdgeLog starting...\r\n");
 
     gpio_init();
 
-    printf("\r\nStart: \r\n");
-    printf("\r\nStart: %d\r\n", 123);
+    LEDS_CONFIGURE(((1<<COMPARE_EVENT_OUTPUT) | (1<<TICK_EVENT_OUTPUT)));
+    LEDS_OFF((1<<COMPARE_EVENT_OUTPUT) | (1<<TICK_EVENT_OUTPUT));
 
+    lfclk_config();
+    rtc_config();
 
-
-
-
+    printf("Ready.\r\n");
 
 
     while (true)
     {
-          ;
+      ;
     }
 
 }
